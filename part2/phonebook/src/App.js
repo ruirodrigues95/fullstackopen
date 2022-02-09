@@ -68,6 +68,13 @@ const App = () => {
           type: 'success',
           message: `Added ${returnedPerson.name}`,
         })
+      }).catch(error =>  {
+        setNotification({
+          type: 'error',
+          message: error.message
+        })
+        console.log(error);
+
       })
     } else {
       const confirm = window.confirm(
