@@ -71,10 +71,8 @@ const App = () => {
       }).catch(error =>  {
         setNotification({
           type: 'error',
-          message: error.message
+          message: error.response.data.error
         })
-        console.log(error);
-
       })
     } else {
       const confirm = window.confirm(
