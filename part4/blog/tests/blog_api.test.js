@@ -3,15 +3,48 @@ const mongoose = require('mongoose')
 const app = require('../app')
 const api = supertest(app)
 const helper = require('./helper')
+const jwt = require('jsonwebtoken')
 
 const Blog = require('../models/blog')
+const User = require('../models/user')
+
+let token = ''
 
 beforeEach(async () => {
   await Blog.deleteMany({})
+  await User.deleteMany({})
 
-  const blogObjects = helper.initialBlogs.map(blog => new Blog(blog))
+  const newUser = {
+    username: 'root',
+    password: '123',
+    name: 'Test User'
+  }
+
+  await api
+    .post('/api/users')
+    .send(newUser)
+
+  const response = await api
+    .post('/api/login')
+    .send({
+      username: 'root',
+      password: '123'
+    })
+
+  token = response.body.token
+
+  const decodedToken = jwt.verify(token, process.env.SECRET)
+  const user = await User.findById(decodedToken.id)
+
+  const blogObjects = helper.initialBlogs.map(blog => {
+    const newBlog = new Blog(blog)
+    newBlog.user = user._id
+    return newBlog
+  })
+
   const promiseArray = blogObjects.map(blog => blog.save())
-  await Promise.all(promiseArray)
+  user.blogs.concat(promiseArray)
+  await Promise.all(promiseArray.concat(user.save()))
 })
 
 test('returns blogs in json format', async () => {
@@ -39,6 +72,7 @@ test('creates a new blog', async () => {
 
   await api
     .post('/api/blogs')
+    .set('Authorization', 'bearer ' + token)
     .send(newBlog)
     .expect(201)
     .expect('Content-Type', /application\/json/)
@@ -60,6 +94,7 @@ test('when likes property is missing it defaults to 0', async () => {
 
   const response = await api
     .post('/api/blogs')
+    .set('Authorization', 'bearer ' + token)
     .send(newBlog)
     .expect(201)
     .expect('Content-Type', /application\/json/)
@@ -75,8 +110,23 @@ test('when title and url are missing, it responds with 400 Bad Request', async (
 
   const response = await api
     .post('/api/blogs')
+    .set('Authorization', 'bearer ' + token)
     .send(newBlog)
     .expect(400)
+})
+
+test('fails with 401 Unauthorized if no token is provided', async () => {
+  const newBlog = {
+    title: 'New blog test',
+    author: 'Rui',
+    url: 'http://newblog.test',
+    likes: 3
+  }
+
+  await api
+    .post('/api/blogs')
+    .send(newBlog)
+    .expect(401)
 })
 
 afterAll(() => {
