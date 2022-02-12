@@ -7,6 +7,8 @@ const LoginForm = props => {
   const submitHandler = (e) => {
     e.preventDefault()
     props.onSubmit(username, password)
+    setUsername('')
+    setPassword('')
   }
 
   return (
